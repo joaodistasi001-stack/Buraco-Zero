@@ -1,17 +1,24 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Buraco Zero App</title>
+
+<!-- WHATSAPP -->
+<meta property="og:title" content="Buraco Zero">
+<meta property="og:description" content="Registre buracos na sua cidade de forma rápida">
+<meta property="og:image" content="https://joaodistas001-stack.github.io/Buraco-Zero/logo.png">
+<meta property="og:url" content="https://joaodistas001-stack.github.io/Buraco-Zero/">
+<meta name="twitter:card" content="summary_large_image">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
 body{margin:0;font-family:Arial;}
 
-/* LOGIN AZUL */
 #login{
 display:flex;
 flex-direction:column;
@@ -44,6 +51,10 @@ border-radius:5px;
 font-weight:bold;
 }
 
+.criar{
+background:#2980b9;
+}
+
 input, select{
 padding:10px;
 margin:5px 0;
@@ -58,7 +69,15 @@ margin:10px 0;
 padding:10px;
 border-radius:8px;
 }
+
+#loading{
+display:none;
+text-align:center;
+font-weight:bold;
+color:#2980b9;
+}
 </style>
+
 </head>
 
 <body>
@@ -67,9 +86,12 @@ border-radius:8px;
 <div id="login">
 <img src="logo.png" width="120">
 <h2>BURACO ZERO</h2>
+
 <input placeholder="Usuário">
 <input type="password" placeholder="Senha">
+
 <button onclick="entrar()">Entrar</button>
+<button class="criar" onclick="alert('Funcionalidade ilustrativa')">Criar login</button>
 </div>
 
 <!-- SISTEMA -->
@@ -85,13 +107,13 @@ border-radius:8px;
 <button onclick="buscarEndereco()">Buscar endereço</button>
 <button onclick="usarLocalizacao()">Usar minha localização 📍</button>
 
+<div id="loading">Buscando endereço...</div>
+
 <div id="map"></div>
 
-<!-- FOTO -->
 <label>Foto do buraco:</label>
 <input type="file" id="foto">
 
-<!-- GRAVIDADE -->
 <label>Gravidade:</label>
 <select id="gravidade">
 <option value="Leve">Leve</option>
@@ -109,30 +131,32 @@ border-radius:8px;
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
+
 let map;
 let marcadorAtual;
 let ocorrencias = [];
 let coordenadaAtual = null;
 
 function entrar(){
+
 document.getElementById("login").style.display="none";
 document.getElementById("sistema").style.display="block";
 
 map = L.map('map');
 
 navigator.geolocation.getCurrentPosition(pos => {
-    let lat = pos.coords.latitude;
-    let lon = pos.coords.longitude;
 
-    map.setView([lat, lon], 16);
+let lat = pos.coords.latitude;
+let lon = pos.coords.longitude;
 
-    L.marker([lat, lon]).addTo(map)
-        .bindPopup("Você está aqui")
-        .openPopup();
+map.setView([lat, lon], 16);
+
+L.marker([lat, lon]).addTo(map)
+.bindPopup("Você está aqui")
+.openPopup();
 
 }, () => {
-    // se não permitir GPS, volta para São Paulo
-    map.setView([-23.55,-46.63],13);
+map.setView([-23.55,-46.63],13);
 });
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -140,6 +164,7 @@ attribution:'© OpenStreetMap'
 }).addTo(map);
 
 map.on("click", function(e){
+
 coordenadaAtual = e.latlng;
 
 if(marcadorAtual){
@@ -149,10 +174,11 @@ map.removeLayer(marcadorAtual);
 marcadorAtual = L.marker(e.latlng).addTo(map)
 .bindPopup("Local selecionado")
 .openPopup();
+
 });
 }
 
-// 🔍 BUSCAR ENDEREÇO (COM CAMPOS SEPARADOS)
+// 🔥 BUSCA CORRIGIDA + MELHORADA
 function buscarEndereco(){
 
 let rua = document.getElementById("rua").value;
@@ -160,17 +186,28 @@ let numero = document.getElementById("numero").value;
 let bairro = document.getElementById("bairro").value;
 let cidade = document.getElementById("cidade").value;
 
-let endereco = `${rua}, ${numero}, ${bairro}, ${cidade}`;
+if (!rua || !cidade){
+alert("Preencha rua e cidade");
+return;
+}
 
-fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${endereco}`)
+document.getElementById("loading").style.display = "block";
+
+// 🔥 endereço mais inteligente
+let endereco = `${rua}, ${cidade}`;
+
+fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(endereco)}`)
 .then(res => res.json())
 .then(data => {
+
+document.getElementById("loading").style.display = "none";
+
 if(data.length > 0){
 
-let lat = data[0].lat;
-let lon = data[0].lon;
+let lat = parseFloat(data[0].lat);
+let lon = parseFloat(data[0].lon);
 
-coordenadaAtual = {lat:parseFloat(lat), lng:parseFloat(lon)};
+coordenadaAtual = {lat, lng:lon};
 
 map.setView([lat, lon], 17);
 
@@ -183,14 +220,19 @@ marcadorAtual = L.marker([lat, lon]).addTo(map)
 .openPopup();
 
 }else{
-alert("Endereço não encontrado");
+alert("Endereço não encontrado. Tente apenas rua + cidade.");
 }
+
 })
-.catch(()=>alert("Erro ao buscar endereço"));
+.catch(()=>{
+document.getElementById("loading").style.display = "none";
+alert("Erro ao buscar endereço");
+});
 }
 
 // 📍 LOCALIZAÇÃO
 function usarLocalizacao(){
+
 navigator.geolocation.getCurrentPosition(pos=>{
 
 let lat = pos.coords.latitude;
@@ -225,14 +267,18 @@ let bairro = document.getElementById("bairro").value;
 let cidade = document.getElementById("cidade").value;
 
 let endereco = `${rua}, ${numero}, ${bairro}, ${cidade}`;
-
 let gravidade = document.getElementById("gravidade").value;
 
 let file = document.getElementById("foto").files[0];
 let fotoURL = file ? URL.createObjectURL(file) : "";
 
+// CORES
+let cor = "green";
+if(gravidade === "Médio") cor = "orange";
+if(gravidade === "Grave") cor = "red";
+
 let marcador = L.circleMarker([coordenadaAtual.lat, coordenadaAtual.lng],{
-color:"red"
+color:cor
 }).addTo(map);
 
 ocorrencias.push({
@@ -255,15 +301,20 @@ lista.innerHTML="";
 document.getElementById("contador").innerText = ocorrencias.length;
 
 ocorrencias.forEach((o,i)=>{
+
 lista.innerHTML += `
 <div class="item">
 <b>${o.endereco}</b><br>
 Gravidade: ${o.gravidade}<br>
 Status: ${o.status}<br>
 ${o.foto ? `<img src="${o.foto}" width="100">` : ""}
+<a href="https://www.google.com/maps?q=${o.endereco}" target="_blank">
+<button>Ver no mapa</button>
+</a>
 <button onclick="resolver(${i})">Resolvido</button>
 </div>
 `;
+
 });
 }
 
@@ -273,6 +324,7 @@ ocorrencias[i].status="Resolvido";
 ocorrencias[i].marcador.setStyle({color:"blue"});
 atualizar();
 }
+
 </script>
 
 </body>
